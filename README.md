@@ -35,7 +35,7 @@ mamba-unet-brain-mri-segmentation/
 ---
 
 ## 🚀 Models Included
-```bash
+
 | Model | Description |
 |-------|--------------|
 | **U-Net** | Classic encoder–decoder CNN for segmentation. |
@@ -43,7 +43,7 @@ mamba-unet-brain-mri-segmentation/
 | **U-Net + ASPP** | Integrates Atrous Spatial Pyramid Pooling for multi-scale feature extraction. |
 | **ResUNet + ASPP** | Residual backbone with ASPP for deeper contextual learning. |
 | **Mamba U-Net (Proposed)** | Incorporates *Mamba* (Selective State Space) blocks for efficient long-range dependency modeling. |
-```
+
 ---
 
 ## 🧩 Dataset
