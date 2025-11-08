@@ -236,8 +236,8 @@ Contributions are welcome!
 ## 📬 Contact
 
 **Author:** Shirish Baral
-**Email:** [[your-email@example.com](mailto:your-email@example.com)]
-**GitHub:** [https://github.com/<your-username>](https://github.com/<your-username>)
+**Email:** [[baral.shirish8@gmail.com](mailto:baral.shirish8@gmail.com)]
+**GitHub:** [https://github.com/<shirish-baral>](https://github.com/<shirish-baral>)
 
 ---
 
@@ -256,5 +256,4 @@ Contributions are welcome!
 
 ---
 
-Would you like me to now give you the short **LICENSE (MIT)** code too — so your repo is fully ready to publish?
 ```
