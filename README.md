@@ -35,7 +35,7 @@ mamba-unet-brain-mri-segmentation/
 ---
 
 ## 🚀 Models Included
-
+```bash
 | Model | Description |
 |-------|--------------|
 | **U-Net** | Classic encoder–decoder CNN for segmentation. |
@@ -43,7 +43,7 @@ mamba-unet-brain-mri-segmentation/
 | **U-Net + ASPP** | Integrates Atrous Spatial Pyramid Pooling for multi-scale feature extraction. |
 | **ResUNet + ASPP** | Residual backbone with ASPP for deeper contextual learning. |
 | **Mamba U-Net (Proposed)** | Incorporates *Mamba* (Selective State Space) blocks for efficient long-range dependency modeling. |
-
+```
 ---
 
 ## 🧩 Dataset
@@ -77,6 +77,7 @@ pip install -r requirements.txt
 ```
 
 ## 🧩 Requirements (main libraries)
+```bash
 torch
 torchvision
 numpy
@@ -88,8 +89,10 @@ albumentations
 tqdm
 jupyterlab
 tensorboard
+```
 
 ## 📘 Notebooks Overview
+```bash
 Notebook	Description
 01_unet_baseline.ipynb	Baseline U-Net training and evaluation.
 02_attention_unet.ipynb	Implements Attention U-Net with attention gates.
@@ -97,7 +100,7 @@ Notebook	Description
 04_implement_mamba.ipynb	Implements and evaluates the proposed Mamba U-Net.
 
 Each notebook visualizes predictions and computes Dice and IoU metrics.
-
+```
 ## 🧠 Proposed Architecture – Mamba U-Net
 
 Mamba U-Net integrates Selective State Space (Mamba) blocks into the U-Net encoder, enabling:
@@ -121,6 +124,7 @@ Mamba U-Net (Proposed)	9.65	0.849	0.736	31.2
 ```
 
 ## 🧪 Reproducibility
+```bash
 
 Fixed random seed: torch.manual_seed(42)
 
@@ -133,6 +137,7 @@ Hardware: NVIDIA RTX GPU (CUDA 12.1)
 Logs and checkpoints → experiments/
 
 Full configuration details in docs/REPRODUCIBILITY.md.
+```
 
 ## 🧰 Scripts (under src/)
 Script	Purpose
