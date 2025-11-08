@@ -8,7 +8,7 @@ It includes comparative experiments between **U-Net**, **Attention U-Net**, **AS
 ---
 
 ## 📁 Repository Structure
-
+```bash
 mamba-unet-brain-mri-segmentation/
 ├── README.md
 ├── requirements.txt
@@ -30,7 +30,7 @@ mamba-unet-brain-mri-segmentation/
 ├── experiments/
 ├── figures/
 └── docs/
-
+```
 
 ---
 
@@ -59,13 +59,14 @@ data/
 ├── mask_002.tif
 
 
+
 All notebooks automatically handle grayscale conversion, normalization, and an **80 : 20 train/validation split**.
 
 ---
 
 ## ⚙️ Environment Setup
 
-### 🔹 Option 1 – pip
+
 ```bash
 git clone https://github.com/<your-username>/mamba-unet-brain-mri-segmentation.git
 cd mamba-unet-brain-mri-segmentation
@@ -73,8 +74,9 @@ python -m venv venv
 source venv/bin/activate        # macOS / Linux
 venv\Scripts\activate           # Windows
 pip install -r requirements.txt
+```
 
-
+## 🧩 Requirements (main libraries)
 torch
 torchvision
 numpy
@@ -87,8 +89,7 @@ tqdm
 jupyterlab
 tensorboard
 
-
-📘 Notebooks Overview
+## 📘 Notebooks Overview
 Notebook	Description
 01_unet_baseline.ipynb	Baseline U-Net training and evaluation.
 02_attention_unet.ipynb	Implements Attention U-Net with attention gates.
@@ -97,7 +98,7 @@ Notebook	Description
 
 Each notebook visualizes predictions and computes Dice and IoU metrics.
 
-🧠 Proposed Architecture – Mamba U-Net
+## 🧠 Proposed Architecture – Mamba U-Net
 
 Mamba U-Net integrates Selective State Space (Mamba) blocks into the U-Net encoder, enabling:
 
@@ -107,7 +108,7 @@ Efficient memory utilization
 
 Competitive segmentation accuracy with reduced complexity
 
-📊 Experimental Results (Summary)
+## 📊 Experimental Results (Summary)
 Model	Params (M)	Dice	IoU	Inference (ms)
 U-Net	7.85	0.842	0.728	36.7
 Attention U-Net	8.12	0.847	0.732	35.8
@@ -117,7 +118,7 @@ Mamba U-Net (Proposed)	9.65	0.849	0.736	31.2
 
 (Refer to the paper for complete metrics and discussion.)
 
-🧪 Reproducibility
+## 🧪 Reproducibility
 
 Fixed random seed: torch.manual_seed(42)
 
@@ -131,7 +132,7 @@ Logs and checkpoints → experiments/
 
 Full configuration details in docs/REPRODUCIBILITY.md.
 
-🧰 Scripts (under src/)
+## 🧰 Scripts (under src/)
 Script	Purpose
 train.py	Trains selected model via command-line arguments.
 infer.py	Runs inference on unseen images.
@@ -143,13 +144,13 @@ Example usage
 
 python src/train.py --model mamba_unet --epochs 50 --batch_size 8 --lr 1e-4
 
-📈 Visualization
+## 📈 Visualization
 
 Qualitative predictions are saved under:
 
 figures/qualitative_results/
 
-🧾 Citation
+## 🧾 Citation
 
 If you use this repository, please cite:
 
@@ -160,12 +161,12 @@ If you use this repository, please cite:
   journal={Under Review}
 }
 
-🪪 License
+## 🪪 License
 
 Released under the MIT License — see LICENSE
  for details.
 
-🙌 Acknowledgments
+## 🙌 Acknowledgments
 
 Vision Mamba (2024) – for state-space architecture inspiration
 
@@ -173,7 +174,7 @@ Kaggle Brain MRI Dataset – public dataset source
 
 Ronneberger et al., 2015 – original U-Net architecture
 
-🤝 Contributing
+## 🤝 Contributing
 
 Contributions are welcome!
 
@@ -185,7 +186,7 @@ Commit your changes
 
 Push and open a Pull Request
 
-📬 Contact
+## 📬 Contact
 
 Author: Shirish Baral
 Email: baral.shirish8@gmail.com
