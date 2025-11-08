@@ -1,17 +1,16 @@
 # src/models.py
 """
-Model implementations for the Mamba-U-Net repo.
+Model definitions for the Mamba U-Net repository.
 
-Contains:
+Includes:
 - UNet (classic)
 - AttentionUNet
-- ASPP module
+- ASPP (lightweight)
 - ResUNetASPP
-- MambaUNet (placeholder Mamba block integrated)
-- helpers: count_parameters, load_model (compatible with common checkpoint formats)
+- MambaUNet (uses MambaBlock from src.mamba_block)
+- helpers: count_parameters, load_model
 
-The Mamba block is implemented as a lightweight, replaceable module (MambaBlock).
-Replace MambaBlock with your full state-space implementation as needed.
+This file assumes `src/mamba_block.py` provides a class `MambaBlock`.
 """
 
 from typing import List, Optional
@@ -19,10 +18,43 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# Try relative import for MambaBlock (works when used as package)
+try:
+    from .mamba_block import MambaBlock
+except Exception:
+    # fallback to absolute import (works when run as script with PYTHONPATH including repo root)
+    try:
+        from src.mamba_block import MambaBlock
+    except Exception:
+        # If import fails, define a simple fallback here to avoid runtime errors.
+        class MambaBlock(nn.Module):
+            def __init__(self, channels, kernel=31):
+                super().__init__()
+                mid = max(16, channels // 2)
+                self.pre = nn.Sequential(
+                    nn.Conv2d(channels, mid, kernel_size=1, bias=False),
+                    nn.BatchNorm2d(mid),
+                    nn.ReLU(inplace=True)
+                )
+                self.dw = nn.Conv2d(mid, mid, kernel_size=kernel, padding=kernel//2, groups=mid, bias=False)
+                self.post = nn.Sequential(
+                    nn.BatchNorm2d(mid),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(mid, channels, kernel_size=1, bias=False),
+                    nn.BatchNorm2d(channels)
+                )
+                self.act = nn.ReLU(inplace=True)
 
-# -----------------------------------------------------------
+            def forward(self, x):
+                y = self.pre(x)
+                y = self.dw(y)
+                y = self.post(y)
+                return self.act(x + y)
+
+
+# -------------------------
 # Basic building blocks
-# -----------------------------------------------------------
+# -------------------------
 class DoubleConv(nn.Module):
     def __init__(self, in_ch, out_ch, mid_ch: Optional[int] = None):
         super().__init__()
@@ -56,20 +88,17 @@ class Down(nn.Module):
 class Up(nn.Module):
     def __init__(self, in_ch, out_ch, bilinear=True):
         super().__init__()
-        # in_ch = channels of the input being upsampled
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
             self.conv = DoubleConv(in_ch, out_ch)
         else:
-            # using transposed conv; assumes in_ch is doubled from concat
+            # when using transposed conv, in_ch should be adjusted accordingly
             self.up = nn.ConvTranspose2d(in_ch // 2, in_ch // 2, kernel_size=2, stride=2)
             self.conv = DoubleConv(in_ch, out_ch)
 
     def forward(self, x1, x2):
-        # x1: decoder feature to be upsampled
-        # x2: skip connection from encoder
         x1 = self.up(x1)
-        # handle odd size differences by padding
+        # pad if necessary (odd sizes)
         diffY = x2.size(2) - x1.size(2)
         diffX = x2.size(3) - x1.size(3)
         if diffY != 0 or diffX != 0:
@@ -79,9 +108,9 @@ class Up(nn.Module):
         return self.conv(x)
 
 
-# -----------------------------------------------------------
-# Classic U-Net
-# -----------------------------------------------------------
+# -------------------------
+# UNet
+# -------------------------
 class UNet(nn.Module):
     def __init__(self, in_channels=1, out_channels=1, features: List[int] = [64, 128, 256, 512], bilinear=True):
         super().__init__()
@@ -91,7 +120,6 @@ class UNet(nn.Module):
         for idx in range(len(features) - 1):
             self.downs.append(Down(features[idx], features[idx + 1]))
         self.bottleneck = DoubleConv(features[-1], features[-1] * 2)
-        # construct ups
         rev_features = list(reversed(features))
         up_in_channels = [features[-1] * 2] + [f * 2 for f in rev_features[:-1]]
         up_out_channels = rev_features
@@ -112,33 +140,28 @@ class UNet(nn.Module):
         return self.out_conv(x)
 
 
-# -----------------------------------------------------------
+# -------------------------
 # Attention U-Net
-# -----------------------------------------------------------
+# -------------------------
 class AttentionGate(nn.Module):
-    """
-    Attention gate used in Attention U-Net.
-    Implementation adapted to be lightweight and compatible with UNet skips.
-    """
     def __init__(self, F_g, F_l, F_int):
         super().__init__()
         self.W_g = nn.Sequential(
-            nn.Conv2d(F_g, F_int, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(F_g, F_int, kernel_size=1, bias=True),
             nn.BatchNorm2d(F_int)
         )
         self.W_x = nn.Sequential(
-            nn.Conv2d(F_l, F_int, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(F_l, F_int, kernel_size=1, bias=True),
             nn.BatchNorm2d(F_int)
         )
         self.psi = nn.Sequential(
-            nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(F_int, 1, kernel_size=1, bias=True),
             nn.BatchNorm2d(1),
             nn.Sigmoid()
         )
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, g, x):
-        # g: gating signal (decoder feature), x: skip connection (encoder feature)
         g1 = self.W_g(g)
         x1 = self.W_x(x)
         psi = self.relu(g1 + x1)
@@ -147,20 +170,13 @@ class AttentionGate(nn.Module):
 
 
 class AttentionUNet(UNet):
-    """
-    Attention U-Net wrapper built on the UNet backbone.
-    This implementation adds attention gates before concatenation in upsampling.
-    """
     def __init__(self, in_channels=1, out_channels=1, features: List[int] = [64, 128, 256, 512], bilinear=True):
         super().__init__(in_channels, out_channels, features, bilinear)
-        # build attention gates corresponding to upsampling stages
-        # note: reversed features correspond to skip channels
         rev_features = list(reversed(features))
-        att_in = [f * 2 for f in rev_features]  # gating features (decoder)
-        att_skip = rev_features  # encoder skip features
+        att_in = [f * 2 for f in rev_features]
+        att_skip = rev_features
         self.attentions = nn.ModuleList()
         for g, x in zip(att_in, att_skip):
-            # intermediate channels
             self.attentions.append(AttentionGate(F_g=g, F_l=x, F_int=max(16, x // 2)))
 
     def forward(self, x):
@@ -170,20 +186,16 @@ class AttentionUNet(UNet):
             encs.append(d(encs[-1]))
         bott = self.bottleneck(encs[-1])
         x = bott
-        # use attentions before concatenating skip
         for up, att, skip in zip(self.ups, self.attentions, reversed(encs[:-1])):
             gated = att(x, skip)
             x = up(x, gated)
         return self.out_conv(x)
 
 
-# -----------------------------------------------------------
-# ASPP module (lightweight)
-# -----------------------------------------------------------
+# -------------------------
+# ASPP
+# -------------------------
 class ASPP(nn.Module):
-    """
-    Lightweight ASPP module. Produces multi-scale context features.
-    """
     def __init__(self, in_ch, out_ch, rates=(1, 6, 12, 18)):
         super().__init__()
         self.branches = nn.ModuleList()
@@ -212,9 +224,9 @@ class ASPP(nn.Module):
         return self.project(x)
 
 
-# -----------------------------------------------------------
+# -------------------------
 # ResUNet + ASPP
-# -----------------------------------------------------------
+# -------------------------
 class ResidualBlock(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
@@ -237,20 +249,18 @@ class ResidualBlock(nn.Module):
 class ResUNetASPP(nn.Module):
     def __init__(self, in_channels=1, out_channels=1, features: List[int] = [64, 128, 256, 512]):
         super().__init__()
-        # encoder residual blocks
         self.encs = nn.ModuleList()
         for idx, f in enumerate(features):
             in_ch = in_channels if idx == 0 else features[idx - 1]
             self.encs.append(ResidualBlock(in_ch, f))
         self.pool = nn.MaxPool2d(2)
         self.aspp = ASPP(features[-1], features[-1])
-        # decoder (simple upsample + residual conv)
         rev_features = list(reversed(features))
         self.up_convs = nn.ModuleList()
         for i in range(len(rev_features) - 1):
             self.up_convs.append(nn.Sequential(
                 nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
-                ResidualBlock(rev_features[i] + rev_features[i+1], rev_features[i+1])
+                ResidualBlock(rev_features[i] + rev_features[i + 1], rev_features[i + 1])
             ))
         self.out_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)
 
@@ -262,71 +272,27 @@ class ResUNetASPP(nn.Module):
             enc_feats.append(cur)
             cur = self.pool(cur)
         cur = self.aspp(cur)
-        # decoder: go backwards
         for i, up in enumerate(self.up_convs):
-            skip = enc_feats[-(i+1)]
+            skip = enc_feats[-(i + 1)]
             cur = up(torch.cat([cur, skip], dim=1))
         return self.out_conv(cur)
 
 
-# -----------------------------------------------------------
-# Mamba block placeholder
-# -----------------------------------------------------------
-class MambaBlock(nn.Module):
-    """
-    Placeholder for a Mamba (state-space or other) block.
-    This lightweight example implements a small gated conv + depthwise conv
-    to mimic longer receptive field behavior while remaining simple.
-
-    Replace or extend this class with your full Mamba state-space block.
-    """
-    def __init__(self, channels, kernel=31):
-        super().__init__()
-        # small gated mechanism
-        mid = max(16, channels // 2)
-        self.pre = nn.Sequential(
-            nn.Conv2d(channels, mid, kernel_size=1, bias=False),
-            nn.BatchNorm2d(mid),
-            nn.ReLU(inplace=True)
-        )
-        # depthwise conv to increase receptive field (simulates long-range)
-        self.dw = nn.Conv2d(mid, mid, kernel_size=kernel, padding=kernel//2, groups=mid, bias=False)
-        self.post = nn.Sequential(
-            nn.BatchNorm2d(mid),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid, channels, kernel_size=1, bias=False),
-            nn.BatchNorm2d(channels)
-        )
-        self.act = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        y = self.pre(x)
-        y = self.dw(y)
-        y = self.post(y)
-        return self.act(x + y)
-
-
+# -------------------------
+# MambaUNet (uses MambaBlock)
+# -------------------------
 class MambaUNet(UNet):
-    """
-    Mamba U-Net: inherit UNet but replace some DoubleConv blocks with MambaBlock.
-    This is a minimal, drop-in approach: we replace the bottleneck and the last encoder stage.
-    Adjust replacements as you prefer.
-    """
     def __init__(self, in_channels=1, out_channels=1, features: List[int] = [64, 128, 256, 512], bilinear=True):
         super().__init__(in_channels, out_channels, features, bilinear)
-        # replace bottleneck with MambaBlock wrapper (project to channels)
         bott_ch = features[-1] * 2
+        # replace bottleneck with DoubleConv + MambaBlock
         self.bottleneck = nn.Sequential(
-            DoubleConv(features[-1], features[-1]*2),
+            DoubleConv(features[-1], bott_ch),
             MambaBlock(bott_ch, kernel=31)
         )
-        # replace the last encoder output (deepest encoder feature) with MambaBlock
-        # locate last Down (deepest)
+        # optionally replace deepest encoder stage with MambaBlock appended
         if len(self.downs) >= 1:
-            deep_down = self.downs[-1]
-            # replace its DoubleConv (pool_conv[1]) with a sequential including MambaBlock
             try:
-                base_out_ch = features[-1]
                 self.downs[-1] = nn.Sequential(
                     nn.MaxPool2d(2),
                     DoubleConv(features[-2], features[-1]),
@@ -336,49 +302,46 @@ class MambaUNet(UNet):
                 pass
 
 
-# -----------------------------------------------------------
+# -------------------------
 # Helpers
-# -----------------------------------------------------------
+# -------------------------
 def count_parameters(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 def load_model(checkpoint_path: str, model_name: str = "unet", device: str = "cpu"):
     """
-    Instantiate a model by name and load checkpoint. Accepts state_dict or full checkpoint dict.
+    Instantiate a model and load a checkpoint. Accepts checkpoints that are:
+    - a state_dict
+    - a dict with key "state_dict" or "model_state_dict"
+    - a full checkpoint dict saved by training script
     """
     device = torch.device(device)
-    model_name = model_name.lower()
-    if model_name == "mamba" or model_name == "mamba_unet":
+    mn = model_name.lower()
+    if mn in ("mamba", "mamba_unet"):
         model = MambaUNet(in_channels=1, out_channels=1)
-    elif model_name == "resunet_aspp" or model_name == "resunet-aspp":
+    elif mn in ("resunet_aspp", "resunet-aspp"):
         model = ResUNetASPP(in_channels=1, out_channels=1)
-    elif model_name == "attention" or model_name == "attention_unet":
+    elif mn in ("attention", "attention_unet"):
         model = AttentionUNet(in_channels=1, out_channels=1)
     else:
         model = UNet(in_channels=1, out_channels=1)
 
     model.to(device)
-    # load checkpoint
     loaded = torch.load(checkpoint_path, map_location=device)
-    # common checkpoint conventions
+
+    # common checkpoint key patterns
     if isinstance(loaded, dict) and "state_dict" in loaded:
         state = loaded["state_dict"]
+    elif isinstance(loaded, dict) and "model_state_dict" in loaded:
+        state = loaded["model_state_dict"]
     elif isinstance(loaded, dict) and any(k.startswith("module.") for k in loaded.keys()):
         state = loaded
-    elif isinstance(loaded, dict) and any(k.startswith("model") for k in loaded.keys()):
-        # try to find key 'model' or 'model_state_dict'
-        if "model_state_dict" in loaded:
-            state = loaded["model_state_dict"]
-        elif "model" in loaded:
-            state = loaded["model"]
-        else:
-            state = loaded
     else:
         state = loaded
 
-    # strip DataParallel 'module.' if present
     if isinstance(state, dict):
+        # strip "module." prefix if present (DataParallel)
         new_state = {}
         for k, v in state.items():
             new_key = k.replace("module.", "") if k.startswith("module.") else k
@@ -390,5 +353,6 @@ def load_model(checkpoint_path: str, model_name: str = "unet", device: str = "cp
             model.load_state_dict(new_state, strict=False)
     else:
         print("Warning: checkpoint format not recognized; returning uninitialized model.")
+
     model.eval()
     return model
