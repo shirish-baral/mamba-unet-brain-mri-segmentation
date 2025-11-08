@@ -47,7 +47,7 @@ mamba-unet-brain-mri-segmentation/
 ---
 
 ## 🧩 Dataset
-
+```bash
 Experiments use the **Brain MRI Segmentation Dataset** (Kaggle), containing 7,860 `.tif` images with corresponding binary masks.
 
 data/
@@ -59,7 +59,7 @@ data/
 ├── mask_002.tif
 
 
-
+```
 All notebooks automatically handle grayscale conversion, normalization, and an **80 : 20 train/validation split**.
 
 ---
@@ -109,6 +109,7 @@ Efficient memory utilization
 Competitive segmentation accuracy with reduced complexity
 
 ## 📊 Experimental Results (Summary)
+```bash
 Model	Params (M)	Dice	IoU	Inference (ms)
 U-Net	7.85	0.842	0.728	36.7
 Attention U-Net	8.12	0.847	0.732	35.8
@@ -117,6 +118,7 @@ ResUNet + ASPP	10.4	0.852	0.739	29.6
 Mamba U-Net (Proposed)	9.65	0.849	0.736	31.2
 
 (Refer to the paper for complete metrics and discussion.)
+```
 
 ## 🧪 Reproducibility
 
