@@ -232,8 +232,8 @@ Contributions are welcome!
 ## 📬 Contact
 
 **Author:** Shirish Baral
-**Email:** [[baral.shirish8@gmail.com](mailto:baral.shirish8@gmail.com)]
-**GitHub:** [https://github.com/<shirish-baral>](https://github.com/<shirish-baral>)
+**Email:** [baral.shirish8@gmail.com](mailto:baral.shirish8@gmail.com)
+**GitHub:** [https://github.com/shirish-baral](https://github.com/shirish-baral)
 
 ---
 
@@ -243,12 +243,10 @@ Contributions are welcome!
 
 ---
 
-✅ **How to use it:**
-1. Open VS Code (or any editor).  
-2. Create a new file named `README.md` in your repo folder.  
-3. Paste everything above into it.  
-4. Save it.  
-5. Commit and push to GitHub.
+✅ **Instructions:**
+1. Copy all text above (including the first and last triple backticks).  
+2. Paste into a new file named `README.md` in your repository root.  
+3. Save and push — it will render perfectly on GitHub with all bold, tables, and code blocks correctly formatted.  
 
 ---
 
